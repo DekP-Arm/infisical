@@ -1,4 +1,9 @@
+const { createClient } = require('redis');
 const axios = require('axios');
+
+const client = createClient();
+
+client.on('error', err => console.log('Redis Client Error', err));
 
 const options = {
     method: 'POST',
@@ -16,15 +21,38 @@ async function fetchToken() {
         return token;
     } catch (err) {
         console.error(err);
+        throw err;
+    }
+}
+
+async function getToken() {
+    try {
+        await client.connect();
+        console.log('Connected to Redis');
+        let token = await client.get('token');
+
+        if (!token) {
+            console.log('Token not found in cache, fetching new token');
+            token = await fetchToken();
+
+            await client.set('token', token, { EX: 30 }); // Expires in 1 hour
+        } else {
+            console.log('Token found in cache', token);
+        }
+
+        await client.disconnect();
+        return token;
+    } catch (err) {
+        console.error('Error in getToken:', err);
+        throw err;
     }
 }
 
 async function makeRequest() {
     try {
-        const token = await fetchToken();
-        // console.log('Token:', token);
-        
-        const url = 'http://localhost:80/api/v3/secrets/raw?secretPath=/';
+        const token = await getToken();
+
+        const url = 'http://localhost:80/api/v3/secrets/raw/NAME';
         const params = {
             workspaceId: 'be324d58-bbf7-49ea-9205-6323c23119b5',
             environment: 'dev',
@@ -34,8 +62,8 @@ async function makeRequest() {
         };
 
         const response = await axios.get(url, { params, headers });
-        secretValue = response.data
-        console.log('Secret Value:',secretValue );
+        const secretValue = response.data;
+        console.log('Secret Value:', secretValue);
     } catch (error) {
         console.error('Error making GET request:', error);
     }

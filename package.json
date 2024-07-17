@@ -12,6 +12,7 @@
   "dependencies": {
     "@infisical/sdk": "^2.2.3",
     "express": "^4.19.2",
-    "infisical-node": "^1.5.1"
+    "infisical-node": "^1.5.1",
+    "redis": "^4.6.15"
   }
 }
